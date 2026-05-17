@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ReservationOverlay } from "./ReservationOverlay";
 
 type Language = "en" | "pt";
@@ -16,9 +16,6 @@ const galleryImages = [
   "/images/gig-surf-morning.jpg",
 ];
 
-// ═══════════════════════════════════════════
-// MENU DATA — EN + PT
-// ══════════════════════════════════════════
 const menuEN = {
   setMenu: [
     { name: "Entry + Main + Dessert", price: "14.45€" },
@@ -29,7 +26,7 @@ const menuEN = {
     paraDois: { label: "For Two", price: "33.00€" },
   },
   allDayDishes: [
-    { name: "Ovo Benegió Salmão", desc: "2 slices of whole grain toast with olive oil and eggs, goat cheese, sautéed spinach, smoked salmon, toasted almonds and homemade hummus", price: "8.50€", extras: [{ name: "Add smoked salmon", price: "+ 1.95€" }, { name: "Add salmon per tapa", price: "+ 1.00€" }] },
+    { name: "Ovo Beneció Salmão", desc: "2 slices of whole grain toast with olive oil and eggs, goat cheese, sautéed spinach, smoked salmon, toasted almonds and homemade hummus", price: "8.50€", extras: [{ name: "Add smoked salmon", price: "+ 1.95€" }, { name: "Add salmon per tapa", price: "+ 1.00€" }] },
     { name: "Ovo Vegio", desc: "Brioche, beans, goat cheese, eggs with toasted vegetables, avocado and toasted almonds", price: "7.50€", extras: [{ name: "Add goat cheese", price: "+ 0.80€" }, { name: "Add avocado per tapa", price: "+ 0.80€" }, { name: "Add salmon per tapa", price: "+ 1.00€" }] },
     { name: "Omelete", desc: "With omelette or egg, choose 2 ingredients: toasted cherry tomato, fried cherry, toasted almonds, sautéed mushrooms, goat cheese, avocado, whole grain toast, spinach, pesto", price: "6.95€", extras: [{ name: "Add extra goat cheese", price: "+ 1.00€" }, { name: "Add set salad of the day", price: "+ 1.50€" }] },
     { name: "Crostini de Abacate", desc: "2 slices of whole grain toast with avocado and eggs, goat cheese, toasted cherry, rosemary, seeds and homemade mayonnaise", price: "8.60€", extras: [{ name: "Add salmon with whole grain", price: "+ 2.80€" }, { name: "Add whole grain bread", price: "+ 1.35€" }, { name: "Add extra per tapa", price: "+ 1.00€" }] },
@@ -92,7 +89,7 @@ const menuPT = {
     paraDois: { label: "Para Dois", price: "33,00€" },
   },
   allDayDishes: [
-    { name: "Ovo Benegió Salmão", desc: "2 fatias de pão de centeio torradas com azeite e ovos, caprinos, espinafres salteados, salmão fumado, amêndoas tostadas e húmus caseiro", price: "8,50€", extras: [{ name: "Acresce salmão fumado", price: "+ 1,95€" }, { name: "Acresce salmão por tapas", price: "+ 1,00€" }] },
+    { name: "Ovo Beneció Salmão", desc: "2 fatias de pão de centeio torradas com azeite e ovos, caprinos, espinafres salteados, salmão fumado, amêndoas tostadas e húmus caseiro", price: "8,50€", extras: [{ name: "Acresce salmão fumado", price: "+ 1,95€" }, { name: "Acresce salmão por tapas", price: "+ 1,00€" }] },
     { name: "Ovo Vegio", desc: "Brioche, cova-fir, feijão, caprinos, ovos com toasts salteados, abacate com pão, água e amêndoas caseiras", price: "7,50€", extras: [{ name: "Acresce caprinos", price: "+ 0,80€" }, { name: "Acresce abacate por tapas", price: "+ 0,80€" }, { name: "Acresce salmão por tapas", price: "+ 1,00€" }] },
     { name: "Omelete", desc: "Com omelete ou ovo, escolha 2 ingredientes: tomate cherry tostado, cereja frita, amêndoas tostadas, cogumelos salteados, caprinos, abacate, torrado caseiro, espinafres, pesto", price: "6,95€", extras: [{ name: "Acresce caprinos extra", price: "+ 1,00€" }, { name: "Acresce set salada do dia", price: "+ 1,50€" }] },
     { name: "Crostini de Abacate", desc: "2 fatias de pão de centeio torradas com abacate e ovos, caprinos e cereja torrada, rosmaninho, sementes e maionese caseira", price: "8,60€", extras: [{ name: "Acresce salmão com centeio", price: "+ 2,80€" }, { name: "Acresce pão integral", price: "+ 1,35€" }, { name: "Acresce extra por tapas", price: "+ 1,00€" }] },
@@ -181,28 +178,6 @@ const copy = {
       coffeeKicker: "Coffee",
       alcoholKicker: "Cocktails & Drinks",
     },
-    reservationOverlay: {
-      title: "Reserve a Table",
-      closeLabel: "Close",
-      nameLabel: "Name",
-      namePlaceholder: "Your name",
-      emailLabel: "Email",
-      emailPlaceholder: "your@email.com",
-      phoneLabel: "Phone",
-      phonePlaceholder: "+351 999 999 999",
-      dateLabel: "Date",
-      timeLabel: "Time",
-      guestsLabel: "Guests",
-      guestsPlaceholder: "Number of guests",
-      messageLabel: "Message (optional)",
-      messagePlaceholder: "Any special request or occasion?",
-      submitButton: "Request Reservation",
-      successTitle: "Reservation Requested!",
-      successMessage: "We'll confirm your table by email shortly. See you soon!",
-      closeSuccess: "Got it",
-      required: "Required fields",
-      submitNote: "We'll confirm your reservation by email.",
-    },
     menuCta: {
       kicker: "Our menu",
       title: "Fresh brunch, coffee and lots of green.",
@@ -272,28 +247,6 @@ const copy = {
       coffeeKicker: "Café",
       alcoholKicker: "Cocktails & Bebidas",
     },
-    reservationOverlay: {
-      title: "Reservar Mesa",
-      closeLabel: "Fechar",
-      nameLabel: "Nome",
-      namePlaceholder: "O teu nome",
-      emailLabel: "Email",
-      emailPlaceholder: "o-teu@email.com",
-      phoneLabel: "Telefone",
-      phonePlaceholder: "+351 999 999 999",
-      dateLabel: "Data",
-      timeLabel: "Hora",
-      guestsLabel: "Pessoas",
-      guestsPlaceholder: "Número de pessoas",
-      messageLabel: "Mensagem (opcional)",
-      messagePlaceholder: "Algum pedido especial ou ocasião?",
-      submitButton: "Pedir Reserva",
-      successTitle: "Reserva Enviada!",
-      successMessage: "Vamos confirmar a tua mesa por email brevemente. Até breve!",
-      closeSuccess: "Perfeito",
-      required: "Campos obrigatórios",
-      submitNote: "Vamos confirmar a tua reserva por email.",
-    },
     menuCta: {
       kicker: "O nosso menu",
       title: "Brunch fresco, café e muito verde.",
@@ -330,9 +283,6 @@ const copy = {
   },
 };
 
-// ═══════════════════════════════════════════════════
-// MENU OVERLAY
-// ═══════════════════════════════════════════════════
 function MenuOverlay({ isOpen, onClose, lang }: { isOpen: boolean; onClose: () => void; lang: Language }) {
   const t = copy[lang].menuOverlay;
   const menu = lang === "en" ? menuEN : menuPT;
@@ -497,14 +447,12 @@ function MenuOverlay({ isOpen, onClose, lang }: { isOpen: boolean; onClose: () =
   );
 }
 
-// ══════════════════════════════════════════════════
-// MAIN APP
-// ═══════════════════════════════════════════════════
 export default function App() {
   const [language, setLanguage] = useState<Language>("en");
   const [menuOpen, setMenuOpen] = useState(false);
   const [reservationOpen, setReservationOpen] = useState(false);
   const t = copy[language];
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -519,20 +467,26 @@ export default function App() {
   }, [language, t.seo.description, t.seo.title]);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
+    // Correcção: reset e re-observe ao mudar de língua
+    const els = document.querySelectorAll<HTMLElement>("[data-reveal]");
+    els.forEach((el) => el.classList.remove("is-visible"));
+
+    if (observerRef.current) observerRef.current.disconnect();
+
+    observerRef.current = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             entry.target.classList.add("is-visible");
-            observer.unobserve(entry.target);
           }
         });
       },
       { rootMargin: "0px 0px -12% 0px", threshold: 0.15 },
     );
-    document.querySelectorAll<HTMLElement>("[data-reveal]").forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, []);
+
+    els.forEach((el) => observerRef.current!.observe(el));
+    return () => observerRef.current?.disconnect();
+  }, [language]);
 
   return (
     <main className="min-h-screen bg-[#f7f0e3] text-[#18352a] selection:bg-[#b7cdbd] selection:text-[#18352a]">

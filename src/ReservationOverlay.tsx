@@ -33,8 +33,15 @@ const copy = {
     errorHours: "Please choose a time between 10:00 and 14:30.",
     errorCapacity: "Sorry, there are not enough spots for your group at this time. Please try another time.",
     errorGeneral: "Something went wrong. Please try again.",
+    errorName: "Please enter a valid name.",
+    errorPhone: "Please enter a valid phone number (at least 9 digits).",
     persons: "people",
     person: "person",
+    timeOptions: [
+      "10:00", "10:30", "11:00", "11:30", "12:00",
+      "12:30", "13:00", "13:30", "14:00", "14:30"
+    ],
+    selectTime: "Select a time",
   },
   pt: {
     title: "Reservar Mesa",
@@ -63,8 +70,15 @@ const copy = {
     errorHours: "Por favor escolhe um horário entre as 10:00 e as 14:30.",
     errorCapacity: "Desculpa, não há lugares suficientes para o teu grupo neste horário. Tenta outro horário.",
     errorGeneral: "Algo correu mal. Tenta novamente.",
+    errorName: "Por favor insere um nome válido.",
+    errorPhone: "Por favor insere um número de telefone válido (mínimo 9 dígitos).",
     persons: "pessoas",
     person: "pessoa",
+    timeOptions: [
+      "10:00", "10:30", "11:00", "11:30", "12:00",
+      "12:30", "13:00", "13:30", "14:00", "14:30"
+    ],
+    selectTime: "Seleciona uma hora",
   },
 };
 
@@ -83,6 +97,16 @@ function isWeekdayClosed(dateStr: string) {
   if (!dateStr) return false;
   const d = new Date(dateStr + "T12:00:00");
   return d.getDay() === CLOSED_WEEKDAY;
+}
+
+function isValidName(name: string) {
+  return name.trim().length >= 2 && /[a-zA-ZÀ-ÿ]/.test(name);
+}
+
+function isValidPhone(phone: string) {
+  if (!phone) return true; // telefone é opcional
+  const digits = phone.replace(/\D/g, "");
+  return digits.length >= 9;
 }
 
 export function ReservationOverlay({
@@ -131,17 +155,29 @@ export function ReservationOverlay({
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    setLoading(true);
 
-    // Validação local: quarta-feira
-    if (isWeekdayClosed(formData.date)) {
-      setError(t.errorClosed);
-      setLoading(false);
+    // Validação do nome
+    if (!isValidName(formData.name)) {
+      setError(t.errorName);
       return;
     }
 
+    // Validação do telefone
+    if (!isValidPhone(formData.phone)) {
+      setError(t.errorPhone);
+      return;
+    }
+
+    // Validação: quarta-feira
+    if (isWeekdayClosed(formData.date)) {
+      setError(t.errorClosed);
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      // Verificar disponibilidade via função Supabase
+      // Verificar disponibilidade
       const { data: availability, error: availError } = await supabase.rpc("check_availability", {
         p_date: formData.date,
         p_time: formData.time,
@@ -160,9 +196,9 @@ export function ReservationOverlay({
         return;
       }
 
-      // Guardar reserva no Supabase
+      // Guardar reserva
       const { error: insertError } = await supabase.from("reservations").insert({
-        name: formData.name,
+        name: formData.name.trim(),
         email: formData.email,
         phone: formData.phone || null,
         date: formData.date,
@@ -174,10 +210,10 @@ export function ReservationOverlay({
 
       if (insertError) throw insertError;
 
-      // Enviar email de confirmação via Edge Function
+      // Enviar email de confirmação
       await supabase.functions.invoke("send-confirmation", {
         body: {
-          name: formData.name,
+          name: formData.name.trim(),
           email: formData.email,
           date: formData.date,
           time: formData.time,
@@ -196,7 +232,9 @@ export function ReservationOverlay({
   };
 
   const inputClass =
-    "w-full rounded-xl border border-[#18352a]/18 bg-white/60 px-4 py-3.5 text-sm text-[#18352a] placeholder:text-[#18352a]/35 outline-none transition focus:border-[#6f8f72] focus:ring-1 focus:ring-[#6f8f72]/40";
+    "w-full rounded-xl border border-[#18352a]/18 bg-white/60 px-4 py-3.5 text-sm text-[#18352a] placeholder:text-[#18352a]/35 outline-none transition focus:border-[#6f8f72] focus:ring-1 focus:ring-[#6f8f72]/40 font-sans";
+
+  const labelClass = "mb-1.5 block text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72]";
 
   return (
     <div
@@ -244,21 +282,26 @@ export function ReservationOverlay({
                   {error}
                 </div>
               )}
+
+              {/* Nome */}
               <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72]">
+                <label className={labelClass}>
                   {t.nameLabel} <span className="text-red-400">{t.required}</span>
                 </label>
                 <input
                   type="text"
                   required
+                  minLength={2}
                   className={inputClass}
                   placeholder={t.namePlaceholder}
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
               </div>
+
+              {/* Email */}
               <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72]">
+                <label className={labelClass}>
                   {t.emailLabel} <span className="text-red-400">{t.required}</span>
                 </label>
                 <input
@@ -270,10 +313,10 @@ export function ReservationOverlay({
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 />
               </div>
+
+              {/* Telefone */}
               <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72]">
-                  {t.phoneLabel}
-                </label>
+                <label className={labelClass}>{t.phoneLabel}</label>
                 <input
                   type="tel"
                   className={inputClass}
@@ -282,9 +325,11 @@ export function ReservationOverlay({
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 />
               </div>
+
+              {/* Data + Hora */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72]">
+                  <label className={labelClass}>
                     {t.dateLabel} <span className="text-red-400">{t.required}</span>
                   </label>
                   <input
@@ -295,35 +340,42 @@ export function ReservationOverlay({
                     className={`${inputClass} ${isWeekdayClosed(formData.date) ? "border-red-300 bg-red-50" : ""}`}
                     value={formData.date}
                     onChange={(e) => {
-                      setFormData({ ...formData, date: e.target.value });
-                      if (isWeekdayClosed(e.target.value)) setError(t.errorClosed);
+                      const val = e.target.value;
+                      setFormData({ ...formData, date: val });
+                      if (isWeekdayClosed(val)) setError(t.errorClosed);
                       else setError(null);
                     }}
                   />
+                  {isWeekdayClosed(formData.date) && (
+                    <p className="mt-1 text-xs text-red-500">{t.errorClosed}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72]">
+                  <label className={labelClass}>
                     {t.timeLabel} <span className="text-red-400">{t.required}</span>
                   </label>
-                  <input
-                    type="time"
+                  <select
                     required
-                    min="10:00"
-                    max="14:30"
-                    step="1800"
-                    className={inputClass}
+                    className={`${inputClass} appearance-none cursor-pointer`}
                     value={formData.time}
                     onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                  />
+                  >
+                    <option value="">{t.selectTime}</option>
+                    {t.timeOptions.map((time) => (
+                      <option key={time} value={time}>{time}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
+
+              {/* Pessoas */}
               <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72]">
+                <label className={labelClass}>
                   {t.guestsLabel} <span className="text-red-400">{t.required}</span>
                 </label>
                 <select
                   required
-                  className={inputClass + " appearance-none cursor-pointer"}
+                  className={`${inputClass} appearance-none cursor-pointer`}
                   value={formData.guests}
                   onChange={(e) => setFormData({ ...formData, guests: e.target.value })}
                 >
@@ -335,10 +387,10 @@ export function ReservationOverlay({
                   ))}
                 </select>
               </div>
+
+              {/* Mensagem */}
               <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72]">
-                  {t.messageLabel}
-                </label>
+                <label className={labelClass}>{t.messageLabel}</label>
                 <textarea
                   rows={3}
                   className={inputClass}
@@ -347,6 +399,7 @@ export function ReservationOverlay({
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                 />
               </div>
+
               <button
                 type="submit"
                 disabled={loading || isWeekdayClosed(formData.date)}
