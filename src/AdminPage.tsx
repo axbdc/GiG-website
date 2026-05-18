@@ -17,7 +17,19 @@ function today() {
   return new Date().toISOString().split("T")[0];
 }
 
-// ─── Login ──────────────────────────────────────────────────────
+function getDatesInRange(startDate: string, endDate: string): string[] {
+  const dates: string[] = [];
+  const start = new Date(startDate + "T12:00:00");
+  const end = new Date(endDate + "T12:00:00");
+  const current = new Date(start);
+  while (current <= end) {
+    dates.push(current.toISOString().split("T")[0]);
+    current.setDate(current.getDate() + 1);
+  }
+  return dates;
+}
+
+// --- Login ---
 function LoginScreen({ onLogin }: { onLogin: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -81,7 +93,7 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
   );
 }
 
-// ─── Stats Card ─────────────────────────────────────────────────
+// --- Stats Card ---
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
     <div className="bg-white rounded-2xl p-6 shadow-sm">
@@ -92,7 +104,7 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
   );
 }
 
-// ─── Reservation Row ────────────────────────────────────────────
+// --- Reservation Row ---
 function ReservationRow({
   r,
   onStatusChange,
@@ -144,7 +156,7 @@ function ReservationRow({
   );
 }
 
-// ─── Main Admin ──────────────────────────────────────────────────
+// --- Main Admin ---
 export default function AdminPage() {
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [view, setView] = useState<View>("dashboard");
@@ -153,10 +165,14 @@ export default function AdminPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [dateFilter, setDateFilter] = useState("");
   const [loading, setLoading] = useState(true);
-  const [newClosedDate, setNewClosedDate] = useState("");
-  const [newClosedReason, setNewClosedReason] = useState("");
 
-  // Verificar autenticação
+  // Modo de adicionar dias fechados: "single" ou "range"
+  const [closedMode, setClosedMode] = useState<"single" | "range">("single");
+  const [newClosedDate, setNewClosedDate] = useState("");
+  const [newClosedDateEnd, setNewClosedDateEnd] = useState("");
+  const [newClosedReason, setNewClosedReason] = useState("");
+  const [addingClosed, setAddingClosed] = useState(false);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setAuthed(!!data.session);
@@ -167,11 +183,8 @@ export default function AdminPage() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  // Carregar dados quando autenticado
   useEffect(() => {
-    if (authed) {
-      loadData();
-    }
+    if (authed) loadData();
   }, [authed]);
 
   const loadData = async () => {
@@ -192,16 +205,36 @@ export default function AdminPage() {
 
   const handleAddClosedDate = async () => {
     if (!newClosedDate) return;
-    const { data } = await supabase
-      .from("closed_dates")
-      .insert({ date: newClosedDate, reason: newClosedReason || null })
-      .select()
-      .single();
-    if (data) {
-      setClosedDates((prev) => [...prev, data].sort((a, b) => a.date.localeCompare(b.date)));
-      setNewClosedDate("");
-      setNewClosedReason("");
+    setAddingClosed(true);
+
+    if (closedMode === "single") {
+      const { data } = await supabase
+        .from("closed_dates")
+        .insert({ date: newClosedDate, reason: newClosedReason || null })
+        .select()
+        .single();
+      if (data) {
+        setClosedDates((prev) => [...prev, data].sort((a, b) => a.date.localeCompare(b.date)));
+      }
+    } else {
+      if (!newClosedDateEnd || newClosedDateEnd < newClosedDate) {
+        setAddingClosed(false);
+        return;
+      }
+      const dates = getDatesInRange(newClosedDate, newClosedDateEnd);
+      const inserts = dates.map((date) => ({ date, reason: newClosedReason || null }));
+      const { data } = await supabase.from("closed_dates").insert(inserts).select();
+      if (data) {
+        setClosedDates((prev) =>
+          [...prev, ...data].sort((a, b) => a.date.localeCompare(b.date))
+        );
+      }
     }
+
+    setNewClosedDate("");
+    setNewClosedDateEnd("");
+    setNewClosedReason("");
+    setAddingClosed(false);
   };
 
   const handleRemoveClosedDate = async (id: string) => {
@@ -213,17 +246,19 @@ export default function AdminPage() {
     await supabase.auth.signOut();
   };
 
-  if (authed === null) return <div className="min-h-screen bg-[#f7f0e3] flex items-center justify-center"><div className="animate-spin h-8 w-8 border-2 border-[#18352a] border-t-transparent rounded-full" /></div>;
+  if (authed === null) return (
+    <div className="min-h-screen bg-[#f7f0e3] flex items-center justify-center">
+      <div className="animate-spin h-8 w-8 border-2 border-[#18352a] border-t-transparent rounded-full" />
+    </div>
+  );
   if (!authed) return <LoginScreen onLogin={() => setAuthed(true)} />;
 
-  // Filtrar reservas
   const filtered = reservations.filter((r) => {
     if (statusFilter !== "all" && r.status !== statusFilter) return false;
     if (dateFilter && r.date !== dateFilter) return false;
     return true;
   });
 
-  // Stats
   const todayRes = reservations.filter((r) => r.date === today() && r.status === "confirmed");
   const todayGuests = todayRes.reduce((s, r) => s + r.guests, 0);
   const upcomingRes = reservations.filter((r) => r.date >= today() && r.status === "confirmed");
@@ -255,9 +290,7 @@ export default function AdminPage() {
               key={item.id}
               onClick={() => setView(item.id)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition text-left ${
-                view === item.id
-                  ? "bg-white/15 text-white"
-                  : "text-white/60 hover:bg-white/08 hover:text-white"
+                view === item.id ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/08 hover:text-white"
               }`}
             >
               <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -268,19 +301,13 @@ export default function AdminPage() {
           ))}
         </nav>
         <div className="px-3 pb-6">
-          <a
-            href="/"
-            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-white/50 hover:text-white hover:bg-white/08 transition"
-          >
+          <a href="/" className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-white/50 hover:text-white hover:bg-white/08 transition">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
             Ver site
           </a>
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-white/50 hover:text-white hover:bg-white/08 transition"
-          >
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-white/50 hover:text-white hover:bg-white/08 transition">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
@@ -307,8 +334,6 @@ export default function AdminPage() {
                     <StatCard label="Próximas" value={upcomingRes.length} sub="reservas futuras" />
                     <StatCard label="Total" value={reservations.length} sub="todas as reservas" />
                   </div>
-
-                  {/* Reservas de hoje */}
                   <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-[#18352a]/06">
                       <h3 className="font-semibold text-[#18352a]">Reservas de hoje</h3>
@@ -349,8 +374,6 @@ export default function AdminPage() {
                   Atualizar
                 </button>
               </div>
-
-              {/* Filtros */}
               <div className="flex flex-wrap gap-3 mb-5">
                 <input
                   type="date"
@@ -372,15 +395,11 @@ export default function AdminPage() {
                   </button>
                 ))}
                 {(dateFilter || statusFilter !== "all") && (
-                  <button
-                    onClick={() => { setDateFilter(""); setStatusFilter("all"); }}
-                    className="text-xs text-[#6f8f72] hover:text-[#18352a] transition"
-                  >
+                  <button onClick={() => { setDateFilter(""); setStatusFilter("all"); }} className="text-xs text-[#6f8f72] hover:text-[#18352a] transition">
                     Limpar filtros
                   </button>
                 )}
               </div>
-
               <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
                 {loading ? (
                   <div className="flex items-center justify-center h-40"><div className="animate-spin h-8 w-8 border-2 border-[#18352a] border-t-transparent rounded-full" /></div>
@@ -415,21 +434,61 @@ export default function AdminPage() {
           {/* CALENDAR / CLOSED DATES */}
           {view === "calendar" && (
             <div>
-              <h2 className="text-2xl font-semibold text-[#18352a] tracking-[-0.04em] mb-6">Dias Fechados</h2>
+              <h2 className="text-2xl font-semibold text-[#18352a] tracking-[-0.04em] mb-2">Dias Fechados</h2>
               <p className="text-sm text-[#405a4d] mb-6">
                 O café está automaticamente fechado às <strong>quartas-feiras</strong>. Usa esta secção para marcar feriados, férias ou outros dias especiais.
               </p>
 
               {/* Adicionar data */}
               <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
-                <h3 className="font-semibold text-[#18352a] mb-4">Marcar dia fechado</h3>
+                <h3 className="font-semibold text-[#18352a] mb-4">Marcar dias fechados</h3>
+
+                {/* Toggle modo */}
+                <div className="flex gap-2 mb-4">
+                  <button
+                    onClick={() => setClosedMode("single")}
+                    className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition ${
+                      closedMode === "single" ? "bg-[#18352a] text-[#fff8ea]" : "bg-[#f0ede6] text-[#405a4d] hover:bg-[#18352a]/10"
+                    }`}
+                  >
+                    Dia único
+                  </button>
+                  <button
+                    onClick={() => setClosedMode("range")}
+                    className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition ${
+                      closedMode === "range" ? "bg-[#18352a] text-[#fff8ea]" : "bg-[#f0ede6] text-[#405a4d] hover:bg-[#18352a]/10"
+                    }`}
+                  >
+                    Período (férias)
+                  </button>
+                </div>
+
                 <div className="flex flex-wrap gap-3">
-                  <input
-                    type="date"
-                    value={newClosedDate}
-                    onChange={(e) => setNewClosedDate(e.target.value)}
-                    className="rounded-xl border border-[#18352a]/18 px-4 py-2.5 text-sm outline-none focus:border-[#6f8f72]"
-                  />
+                  {closedMode === "single" ? (
+                    <input
+                      type="date"
+                      value={newClosedDate}
+                      onChange={(e) => setNewClosedDate(e.target.value)}
+                      className="rounded-xl border border-[#18352a]/18 px-4 py-2.5 text-sm outline-none focus:border-[#6f8f72]"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={newClosedDate}
+                        onChange={(e) => setNewClosedDate(e.target.value)}
+                        className="rounded-xl border border-[#18352a]/18 px-4 py-2.5 text-sm outline-none focus:border-[#6f8f72]"
+                      />
+                      <span className="text-sm text-[#405a4d]">até</span>
+                      <input
+                        type="date"
+                        value={newClosedDateEnd}
+                        min={newClosedDate}
+                        onChange={(e) => setNewClosedDateEnd(e.target.value)}
+                        className="rounded-xl border border-[#18352a]/18 px-4 py-2.5 text-sm outline-none focus:border-[#6f8f72]"
+                      />
+                    </div>
+                  )}
                   <input
                     type="text"
                     placeholder="Motivo (opcional)"
@@ -439,12 +498,17 @@ export default function AdminPage() {
                   />
                   <button
                     onClick={handleAddClosedDate}
-                    disabled={!newClosedDate}
+                    disabled={!newClosedDate || addingClosed || (closedMode === "range" && !newClosedDateEnd)}
                     className="rounded-full bg-[#18352a] px-6 py-2.5 text-sm font-bold uppercase tracking-[0.14em] text-[#fff8ea] hover:bg-[#6f8f72] transition disabled:opacity-40"
                   >
-                    Adicionar
+                    {addingClosed ? "A adicionar..." : "Adicionar"}
                   </button>
                 </div>
+                {closedMode === "range" && newClosedDate && newClosedDateEnd && newClosedDateEnd >= newClosedDate && (
+                  <p className="mt-2 text-xs text-[#6f8f72]">
+                    {getDatesInRange(newClosedDate, newClosedDateEnd).length} dias serão marcados como fechados.
+                  </p>
+                )}
               </div>
 
               {/* Lista de datas fechadas */}
@@ -453,9 +517,7 @@ export default function AdminPage() {
                   <h3 className="font-semibold text-[#18352a]">Datas marcadas como fechadas</h3>
                 </div>
                 {closedDates.length === 0 ? (
-                  <div className="px-6 py-10 text-center text-[#405a4d] text-sm">
-                    Nenhuma data especial marcada.
-                  </div>
+                  <div className="px-6 py-10 text-center text-[#405a4d] text-sm">Nenhuma data especial marcada.</div>
                 ) : (
                   <div className="divide-y divide-[#18352a]/06">
                     {closedDates.map((d) => (
@@ -502,7 +564,7 @@ export default function AdminPage() {
                   </div>
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72] mb-1">Capacidade máx. por slot</p>
-                    <p className="text-lg font-semibold text-[#18352a]">60 pessoas</p>
+                    <p className="text-lg font-semibold text-[#18352a]">30 pessoas</p>
                   </div>
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72] mb-1">Dia fechado semanal</p>
