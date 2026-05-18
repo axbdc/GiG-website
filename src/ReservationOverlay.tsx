@@ -14,28 +14,29 @@ const copy = {
     emailLabel: "Email",
     emailPlaceholder: "your@email.com",
     phoneLabel: "Phone",
-    phonePlaceholder: "9XXXXXXXX",
+    phonePlaceholder: "+351 912 345 678",
     dateLabel: "Date",
     timeLabel: "Time",
     guestsLabel: "Guests",
     guestsPlaceholder: "Number of guests",
     messageLabel: "Message (optional)",
-    messagePlaceholder: "Any special request or occasion?",
+    messagePlaceholder: "Any special request or occasion? (max. 200 characters)",
     submitButton: "Request Reservation",
     submitting: "Sending...",
-    successTitle: "Reservation Confirmed!",
-    successMessage: "A confirmation has been sent to your email. See you soon at GiG!",
+    successTitle: "Reservation Requested!",
+    successMessage: "We will confirm your reservation by email shortly. See you soon at GiG!",
     closeSuccess: "Got it",
     required: "*",
-    submitNote: "We will confirm your reservation instantly by email.",
+    submitNote: "We will confirm your reservation by email.",
     errorClosed: "Sorry, the café is closed on Wednesdays.",
     errorClosedDate: "Sorry, the café is closed on this date.",
     errorHours: "Please choose a time between 10:00 and 14:30.",
     errorCapacity: "Sorry, there are not enough spots for your group at this time. Please try another time.",
     errorGeneral: "Something went wrong. Please try again.",
-    errorName: "Please enter a valid name (letters only, 2-50 characters).",
-    errorPhone: "Please enter a valid Portuguese mobile number (9 digits, starting with 9).",
+    errorName: "Please enter a valid name (letters only, 2-25 characters).",
+    errorPhone: "Please enter a valid phone number (6-15 digits).",
     errorTooSoon: "Please book at least 2 hours in advance.",
+    errorMessage: "Message cannot exceed 200 characters.",
     persons: "people",
     person: "person",
     timeOptions: [
@@ -52,28 +53,29 @@ const copy = {
     emailLabel: "Email",
     emailPlaceholder: "o-teu@email.com",
     phoneLabel: "Telefone",
-    phonePlaceholder: "9XXXXXXXX",
+    phonePlaceholder: "+351 912 345 678",
     dateLabel: "Data",
     timeLabel: "Hora",
     guestsLabel: "Pessoas",
     guestsPlaceholder: "Número de pessoas",
     messageLabel: "Mensagem (opcional)",
-    messagePlaceholder: "Algum pedido especial ou ocasião?",
+    messagePlaceholder: "Algum pedido especial ou ocasião? (máx. 200 caracteres)",
     submitButton: "Pedir Reserva",
     submitting: "A enviar...",
-    successTitle: "Reserva Confirmada!",
-    successMessage: "Enviámos uma confirmação para o teu email. Até breve no GiG!",
+    successTitle: "Pedido Recebido!",
+    successMessage: "Vamos confirmar a tua reserva por email em breve. Até breve no GiG!",
     closeSuccess: "Perfeito",
     required: "*",
-    submitNote: "Vamos confirmar a tua reserva instantaneamente por email.",
+    submitNote: "Vamos confirmar a tua reserva por email.",
     errorClosed: "Desculpa, o café está fechado às quartas-feiras.",
     errorClosedDate: "Desculpa, o café está fechado nesta data.",
     errorHours: "Por favor escolhe um horário entre as 10:00 e as 14:30.",
     errorCapacity: "Desculpa, não há lugares suficientes para o teu grupo neste horário. Tenta outro horário.",
     errorGeneral: "Algo correu mal. Tenta novamente.",
-    errorName: "Por favor insere um nome válido (apenas letras, 2-50 caracteres).",
-    errorPhone: "Por favor insere um número de telemóvel válido (9 dígitos, começando por 9).",
+    errorName: "Por favor insere um nome válido (apenas letras, 2-25 caracteres).",
+    errorPhone: "Por favor insere um número de telefone válido (6-15 dígitos).",
     errorTooSoon: "Por favor faz a reserva com pelo menos 2 horas de antecedência.",
+    errorMessage: "A mensagem não pode ter mais de 200 caracteres.",
     persons: "pessoas",
     person: "pessoa",
     timeOptions: [
@@ -109,7 +111,7 @@ function isValidName(name: string) {
 function isValidPhone(phone: string) {
   if (!phone) return true;
   const digits = phone.replace(/\D/g, "");
-  return digits.length === 9 && digits.startsWith("9");
+  return digits.length >= 6 && digits.length <= 15;
 }
 
 export function ReservationOverlay({
@@ -169,6 +171,11 @@ export function ReservationOverlay({
       return;
     }
 
+    if (formData.message.length > 200) {
+      setError(t.errorMessage);
+      return;
+    }
+
     if (isWeekdayClosed(formData.date)) {
       setError(t.errorClosed);
       return;
@@ -204,7 +211,7 @@ export function ReservationOverlay({
         time: formData.time,
         guests: parseInt(formData.guests),
         message: formData.message || null,
-        status: "confirmed",
+        status: "pending",
       });
 
       if (insertError) throw insertError;
@@ -218,6 +225,7 @@ export function ReservationOverlay({
           time: formData.time,
           guests: formData.guests,
           lang,
+          type: "pending",
         },
       });
 
@@ -248,7 +256,7 @@ export function ReservationOverlay({
           <div className="flex flex-col items-center gap-4 px-8 py-16 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#6f8f72] text-[#fff8ea]">
               <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <h3 className="font-serif text-2xl tracking-[-0.04em] text-[#18352a]">{t.successTitle}</h3>
@@ -316,7 +324,7 @@ export function ReservationOverlay({
                 <label className={labelClass}>{t.phoneLabel}</label>
                 <input
                   type="tel"
-                  maxLength={9}
+                  maxLength={20}
                   className={inputClass}
                   placeholder={t.phonePlaceholder}
                   value={formData.phone}
@@ -388,11 +396,13 @@ export function ReservationOverlay({
                 <label className={labelClass}>{t.messageLabel}</label>
                 <textarea
                   rows={3}
+                  maxLength={200}
                   className="w-full rounded-xl border border-[#18352a]/18 bg-white/60 px-4 py-3.5 text-sm text-[#18352a] placeholder:text-[#18352a]/35 outline-none transition focus:border-[#6f8f72] focus:ring-1 focus:ring-[#6f8f72]/40 font-sans"
                   placeholder={t.messagePlaceholder}
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                 />
+                <p className="mt-1 text-right text-xs text-[#18352a]/40">{formData.message.length}/200</p>
               </div>
 
               <button
