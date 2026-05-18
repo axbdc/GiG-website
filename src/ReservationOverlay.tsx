@@ -109,7 +109,7 @@ function isValidName(name: string) {
 }
 
 function isValidPhone(phone: string) {
-  if (!phone) return true;
+  if (!phone) return false;
   const digits = phone.replace(/\D/g, "");
   return digits.length >= 6 && digits.length <= 15;
 }
@@ -321,7 +321,7 @@ export function ReservationOverlay({
               </div>
 
               <div>
-                <label className={labelClass}>{t.phoneLabel}</label>
+                <label className={labelClass}>{t.phoneLabel} <span className="text-red-400">{t.required}</span></label>
                 <input
                   type="tel"
                   maxLength={20}

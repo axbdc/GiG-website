@@ -187,7 +187,7 @@ export default function AdminPage() {
   const loadData = async () => {
     setLoading(true);
     const [{ data: res }, { data: cd }] = await Promise.all([
-      supabase.from("reservations").select("*").order("date", { ascending: true }).order("time", { ascending: true }),
+      supabase.from("reservations").select("*").order("date", { ascending: true }).order("time", { ascending: true }).order("created_at", { ascending: true }),
       supabase.from("closed_dates").select("*").order("date", { ascending: true }),
     ]);
     setReservations(res || []);
