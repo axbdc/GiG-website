@@ -211,6 +211,11 @@ const copy = {
       contact: "Contact",
     },
     footer: { line: "Green is Good. Brunch is better by the sea." },
+    cookies: {
+      text: "We use cookies to improve your experience. By continuing to browse, you agree to our use of cookies in accordance with GDPR.",
+      accept: "Got it",
+      decline: "No thanks",
+    },
   },
   pt: {
     seo: {
@@ -280,9 +285,59 @@ const copy = {
       contact: "Contactar",
     },
     footer: { line: "Green is Good. Brunch sabe melhor junto ao mar." },
+    cookies: {
+      text: "Usamos cookies para melhorar a tua experiência. Ao continuares a navegar, aceitas o uso de cookies de acordo com o RGPD.",
+      accept: "Entendido",
+      decline: "Não, obrigado",
+    },
   },
 };
 
+// ══════════════════════════════════════════════
+// COOKIE BANNER
+// ══════════════════════════════════════════════
+function CookieBanner({ lang, onAccept, onDecline }: { lang: Language; onAccept: () => void; onDecline: () => void }) {
+  const t = copy[lang].cookies;
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-[200] p-4 sm:p-6">
+      <div className="mx-auto max-w-5xl overflow-hidden rounded-2xl shadow-2xl" style={{ background: "#1a3828" }}>
+        <div className="relative flex flex-col sm:flex-row items-center">
+          {/* Imagem do carro */}
+          <div className="w-full sm:w-[420px] shrink-0 h-[160px] sm:h-[140px] overflow-hidden">
+            <img
+              src="/images/banner-cookies.png"
+              alt="GiG Ericeira car"
+              className="h-full w-full object-cover object-left"
+            />
+          </div>
+          {/* Texto e botões */}
+          <div className="flex flex-1 flex-col gap-4 px-6 py-5 sm:py-0">
+            <p className="text-sm leading-6 text-[#fff8ea]/85">{t.text}</p>
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={onAccept}
+                className="rounded-full bg-[#f7f0e3] px-6 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-[#18352a] transition hover:bg-[#dbe7c6]"
+              >
+                {t.accept}
+              </button>
+              <button
+                onClick={onDecline}
+                className="rounded-full border border-[#f7f0e3]/30 px-6 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-[#fff8ea]/70 transition hover:border-[#f7f0e3]/60 hover:text-[#fff8ea]"
+              >
+                {t.decline}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════
+// MENU OVERLAY
+// ══════════════════════════════════════════════
 function MenuOverlay({ isOpen, onClose, lang }: { isOpen: boolean; onClose: () => void; lang: Language }) {
   const t = copy[lang].menuOverlay;
   const menu = lang === "en" ? menuEN : menuPT;
@@ -447,10 +502,16 @@ function MenuOverlay({ isOpen, onClose, lang }: { isOpen: boolean; onClose: () =
   );
 }
 
+// ══════════════════════════════════════════════
+// MAIN APP
+// ══════════════════════════════════════════════
 export default function App() {
   const [language, setLanguage] = useState<Language>("en");
   const [menuOpen, setMenuOpen] = useState(false);
   const [reservationOpen, setReservationOpen] = useState(false);
+  const [cookiesAccepted, setCookiesAccepted] = useState<boolean>(() => {
+    return localStorage.getItem("gig-cookies") !== null;
+  });
   const t = copy[language];
   const observerRef = useRef<IntersectionObserver | null>(null);
 
@@ -467,26 +528,26 @@ export default function App() {
   }, [language, t.seo.description, t.seo.title]);
 
   useEffect(() => {
-    // Correcção: reset e re-observe ao mudar de língua
     const els = document.querySelectorAll<HTMLElement>("[data-reveal]");
     els.forEach((el) => el.classList.remove("is-visible"));
-
     if (observerRef.current) observerRef.current.disconnect();
-
     observerRef.current = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("is-visible");
-          }
-        });
-      },
+      (entries) => { entries.forEach((entry) => { if (entry.isIntersecting) entry.target.classList.add("is-visible"); }); },
       { rootMargin: "0px 0px -12% 0px", threshold: 0.15 },
     );
-
     els.forEach((el) => observerRef.current!.observe(el));
     return () => observerRef.current?.disconnect();
   }, [language]);
+
+  const handleCookieAccept = () => {
+    localStorage.setItem("gig-cookies", "accepted");
+    setCookiesAccepted(true);
+  };
+
+  const handleCookieDecline = () => {
+    localStorage.setItem("gig-cookies", "declined");
+    setCookiesAccepted(true);
+  };
 
   return (
     <main className="min-h-screen bg-[#f7f0e3] text-[#18352a] selection:bg-[#b7cdbd] selection:text-[#18352a]">
@@ -508,10 +569,8 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <button
-              onClick={() => setReservationOpen(true)}
-              className="rounded-full bg-[#18352a] px-3 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-[#fff8ea] transition hover:-translate-y-0.5 hover:bg-[#6f8f72] sm:px-4 sm:text-xs"
-            >
+            <button onClick={() => setReservationOpen(true)}
+              className="rounded-full bg-[#18352a] px-3 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-[#fff8ea] transition hover:-translate-y-0.5 hover:bg-[#6f8f72] sm:px-4 sm:text-xs">
               {t.hero.secondary}
             </button>
           </div>
@@ -692,6 +751,11 @@ export default function App() {
       {/* OVERLAYS */}
       <MenuOverlay isOpen={menuOpen} onClose={() => setMenuOpen(false)} lang={language} />
       <ReservationOverlay isOpen={reservationOpen} onClose={() => setReservationOpen(false)} lang={language} />
+
+      {/* COOKIE BANNER */}
+      {!cookiesAccepted && (
+        <CookieBanner lang={language} onAccept={handleCookieAccept} onDecline={handleCookieDecline} />
+      )}
     </main>
   );
 }
