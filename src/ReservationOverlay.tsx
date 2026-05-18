@@ -215,6 +215,7 @@ export function ReservationOverlay({
         body: {
           name: formData.name.trim(),
           email: formData.email,
+	  phone: formData.phone,
           date: formData.date,
           time: formData.time,
           guests: formData.guests,
