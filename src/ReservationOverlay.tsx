@@ -331,7 +331,7 @@ export function ReservationOverlay({
                     required
                     min={getMinDate()}
                     max={getMaxDate()}
-                    className={`${inputClass} ${isWeekdayClosed(formData.date) ? "border-red-300 bg-red-50" : ""}`}
+                    className={`${inputClass} w-full ${isWeekdayClosed(formData.date) ? "border-red-300 bg-red-50" : ""}`}
                     value={formData.date}
                     onChange={(e) => {
                       const val = e.target.value;
