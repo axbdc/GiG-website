@@ -35,6 +35,7 @@ const copy = {
     errorGeneral: "Something went wrong. Please try again.",
     errorName: "Please enter a valid name.",
     errorPhone: "Please enter a valid phone number (at least 9 digits).",
+    errorTooSoon: "Please book at least 2 hours in advance.",
     persons: "people",
     person: "person",
     timeOptions: [
@@ -72,6 +73,7 @@ const copy = {
     errorGeneral: "Algo correu mal. Tenta novamente.",
     errorName: "Por favor insere um nome válido.",
     errorPhone: "Por favor insere um número de telefone válido (mínimo 9 dígitos).",
+    errorTooSoon: "Por favor faz a reserva com pelo menos 2 horas de antecedência.",
     persons: "pessoas",
     person: "pessoa",
     timeOptions: [
@@ -104,7 +106,7 @@ function isValidName(name: string) {
 }
 
 function isValidPhone(phone: string) {
-  if (!phone) return true; // telefone é opcional
+  if (!phone) return true;
   const digits = phone.replace(/\D/g, "");
   return digits.length >= 9;
 }
@@ -156,19 +158,16 @@ export function ReservationOverlay({
     e.preventDefault();
     setError(null);
 
-    // Validação do nome
     if (!isValidName(formData.name)) {
       setError(t.errorName);
       return;
     }
 
-    // Validação do telefone
     if (!isValidPhone(formData.phone)) {
       setError(t.errorPhone);
       return;
     }
 
-    // Validação: quarta-feira
     if (isWeekdayClosed(formData.date)) {
       setError(t.errorClosed);
       return;
@@ -177,7 +176,6 @@ export function ReservationOverlay({
     setLoading(true);
 
     try {
-      // Verificar disponibilidade
       const { data: availability, error: availError } = await supabase.rpc("check_availability", {
         p_date: formData.date,
         p_time: formData.time,
@@ -191,12 +189,12 @@ export function ReservationOverlay({
         else if (availability.reason === "closed_date") setError(t.errorClosedDate);
         else if (availability.reason === "outside_hours") setError(t.errorHours);
         else if (availability.reason === "no_capacity") setError(t.errorCapacity);
+        else if (availability.reason === "too_soon") setError(t.errorTooSoon);
         else setError(t.errorGeneral);
         setLoading(false);
         return;
       }
 
-      // Guardar reserva
       const { error: insertError } = await supabase.from("reservations").insert({
         name: formData.name.trim(),
         email: formData.email,
@@ -210,12 +208,11 @@ export function ReservationOverlay({
 
       if (insertError) throw insertError;
 
-      // Enviar email de confirmação
       await supabase.functions.invoke("send-confirmation", {
         body: {
           name: formData.name.trim(),
           email: formData.email,
-	  phone: formData.phone,
+          phone: formData.phone,
           date: formData.date,
           time: formData.time,
           guests: formData.guests,
@@ -284,7 +281,6 @@ export function ReservationOverlay({
                 </div>
               )}
 
-              {/* Nome */}
               <div>
                 <label className={labelClass}>
                   {t.nameLabel} <span className="text-red-400">{t.required}</span>
@@ -300,7 +296,6 @@ export function ReservationOverlay({
                 />
               </div>
 
-              {/* Email */}
               <div>
                 <label className={labelClass}>
                   {t.emailLabel} <span className="text-red-400">{t.required}</span>
@@ -315,7 +310,6 @@ export function ReservationOverlay({
                 />
               </div>
 
-              {/* Telefone */}
               <div>
                 <label className={labelClass}>{t.phoneLabel}</label>
                 <input
@@ -327,7 +321,6 @@ export function ReservationOverlay({
                 />
               </div>
 
-              {/* Data + Hora */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelClass}>
@@ -369,7 +362,6 @@ export function ReservationOverlay({
                 </div>
               </div>
 
-              {/* Pessoas */}
               <div>
                 <label className={labelClass}>
                   {t.guestsLabel} <span className="text-red-400">{t.required}</span>
@@ -389,7 +381,6 @@ export function ReservationOverlay({
                 </select>
               </div>
 
-              {/* Mensagem */}
               <div>
                 <label className={labelClass}>{t.messageLabel}</label>
                 <textarea
