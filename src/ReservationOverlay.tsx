@@ -10,7 +10,7 @@ const copy = {
     title: "Reserve a Table",
     closeLabel: "Close",
     nameLabel: "Name",
-    namePlaceholder: "Your name",
+    namePlaceholder: "First and last name",
     emailLabel: "Email",
     emailPlaceholder: "your@email.com",
     phoneLabel: "Phone",
@@ -48,7 +48,7 @@ const copy = {
     title: "Reservar Mesa",
     closeLabel: "Fechar",
     nameLabel: "Nome",
-    namePlaceholder: "O teu nome",
+    namePlaceholder: "Primeiro e último nome",
     emailLabel: "Email",
     emailPlaceholder: "o-teu@email.com",
     phoneLabel: "Telefone",
@@ -103,7 +103,7 @@ function isWeekdayClosed(dateStr: string) {
 
 function isValidName(name: string) {
   const trimmed = name.trim();
-  return trimmed.length >= 2 && trimmed.length <= 50 && /^[a-zA-ZÀ-ÿ\s]+$/.test(trimmed);
+  return trimmed.length >= 2 && trimmed.length <= 25 && /^[a-zA-ZÀ-ÿ\s]+$/.test(trimmed);
 }
 
 function isValidPhone(phone: string) {
@@ -290,7 +290,7 @@ export function ReservationOverlay({
                   type="text"
                   required
                   minLength={2}
-                  maxLength={50}
+                  maxLength={25}
                   className={inputClass}
                   placeholder={t.namePlaceholder}
                   value={formData.name}
