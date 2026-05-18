@@ -230,7 +230,7 @@ export function ReservationOverlay({
   };
 
   const inputClass =
-    "w-full rounded-xl border border-[#18352a]/18 bg-white/60 px-4 py-3.5 text-sm text-[#18352a] placeholder:text-[#18352a]/35 outline-none transition focus:border-[#6f8f72] focus:ring-1 focus:ring-[#6f8f72]/40 font-sans";
+    "w-full rounded-xl border border-[#18352a]/18 bg-white/60 px-4 text-sm text-[#18352a] placeholder:text-[#18352a]/35 outline-none transition focus:border-[#6f8f72] focus:ring-1 focus:ring-[#6f8f72]/40 font-sans appearance-none h-[52px]";
 
   const labelClass = "mb-1.5 block text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72]";
 
@@ -331,7 +331,7 @@ export function ReservationOverlay({
                     required
                     min={getMinDate()}
                     max={getMaxDate()}
-                    className={`${inputClass} w-full ${isWeekdayClosed(formData.date) ? "border-red-300 bg-red-50" : ""}`}
+                    className={`${inputClass} ${isWeekdayClosed(formData.date) ? "border-red-300 bg-red-50" : ""}`}
                     value={formData.date}
                     onChange={(e) => {
                       const val = e.target.value;
@@ -350,7 +350,7 @@ export function ReservationOverlay({
                   </label>
                   <select
                     required
-                    className={`${inputClass} appearance-none cursor-pointer`}
+                    className={`${inputClass} cursor-pointer`}
                     value={formData.time}
                     onChange={(e) => setFormData({ ...formData, time: e.target.value })}
                   >
@@ -368,7 +368,7 @@ export function ReservationOverlay({
                 </label>
                 <select
                   required
-                  className={`${inputClass} appearance-none cursor-pointer`}
+                  className={`${inputClass} cursor-pointer`}
                   value={formData.guests}
                   onChange={(e) => setFormData({ ...formData, guests: e.target.value })}
                 >
@@ -385,7 +385,7 @@ export function ReservationOverlay({
                 <label className={labelClass}>{t.messageLabel}</label>
                 <textarea
                   rows={3}
-                  className={inputClass}
+                  className="w-full rounded-xl border border-[#18352a]/18 bg-white/60 px-4 py-3.5 text-sm text-[#18352a] placeholder:text-[#18352a]/35 outline-none transition focus:border-[#6f8f72] focus:ring-1 focus:ring-[#6f8f72]/40 font-sans"
                   placeholder={t.messagePlaceholder}
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
