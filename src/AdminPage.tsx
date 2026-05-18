@@ -182,7 +182,13 @@ export default function AdminPage() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  useEffect(() => { if (authed) loadData(); }, [authed]);
+  useEffect(() => {
+  if (authed) {
+    loadData();
+    const interval = setInterval(loadData, 30000);
+    return () => clearInterval(interval);
+  }
+}, [authed]);
 
   const loadData = async () => {
     setLoading(true);
