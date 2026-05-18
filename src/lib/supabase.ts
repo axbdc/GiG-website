@@ -14,7 +14,7 @@ export type Reservation = {
   time: string
   guests: number
   message: string | null
-  status: 'confirmed' | 'cancelled' | 'no_show'
+  status: 'pending' | 'confirmed' | 'cancelled' | 'no_show'
   created_at: string
 }
 
