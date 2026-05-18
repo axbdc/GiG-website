@@ -14,7 +14,7 @@ const copy = {
     emailLabel: "Email",
     emailPlaceholder: "your@email.com",
     phoneLabel: "Phone",
-    phonePlaceholder: "+351 999 999 999",
+    phonePlaceholder: "9XXXXXXXX",
     dateLabel: "Date",
     timeLabel: "Time",
     guestsLabel: "Guests",
@@ -33,8 +33,8 @@ const copy = {
     errorHours: "Please choose a time between 10:00 and 14:30.",
     errorCapacity: "Sorry, there are not enough spots for your group at this time. Please try another time.",
     errorGeneral: "Something went wrong. Please try again.",
-    errorName: "Please enter a valid name.",
-    errorPhone: "Please enter a valid phone number (at least 9 digits).",
+    errorName: "Please enter a valid name (letters only, 2-50 characters).",
+    errorPhone: "Please enter a valid Portuguese mobile number (9 digits, starting with 9).",
     errorTooSoon: "Please book at least 2 hours in advance.",
     persons: "people",
     person: "person",
@@ -52,7 +52,7 @@ const copy = {
     emailLabel: "Email",
     emailPlaceholder: "o-teu@email.com",
     phoneLabel: "Telefone",
-    phonePlaceholder: "+351 999 999 999",
+    phonePlaceholder: "9XXXXXXXX",
     dateLabel: "Data",
     timeLabel: "Hora",
     guestsLabel: "Pessoas",
@@ -71,8 +71,8 @@ const copy = {
     errorHours: "Por favor escolhe um horário entre as 10:00 e as 14:30.",
     errorCapacity: "Desculpa, não há lugares suficientes para o teu grupo neste horário. Tenta outro horário.",
     errorGeneral: "Algo correu mal. Tenta novamente.",
-    errorName: "Por favor insere um nome válido.",
-    errorPhone: "Por favor insere um número de telefone válido (mínimo 9 dígitos).",
+    errorName: "Por favor insere um nome válido (apenas letras, 2-50 caracteres).",
+    errorPhone: "Por favor insere um número de telemóvel válido (9 dígitos, começando por 9).",
     errorTooSoon: "Por favor faz a reserva com pelo menos 2 horas de antecedência.",
     persons: "pessoas",
     person: "pessoa",
@@ -102,13 +102,14 @@ function isWeekdayClosed(dateStr: string) {
 }
 
 function isValidName(name: string) {
-  return name.trim().length >= 2 && /[a-zA-ZÀ-ÿ]/.test(name);
+  const trimmed = name.trim();
+  return trimmed.length >= 2 && trimmed.length <= 50 && /^[a-zA-ZÀ-ÿ\s]+$/.test(trimmed);
 }
 
 function isValidPhone(phone: string) {
   if (!phone) return true;
   const digits = phone.replace(/\D/g, "");
-  return digits.length >= 9;
+  return digits.length === 9 && digits.startsWith("9");
 }
 
 export function ReservationOverlay({
@@ -289,6 +290,7 @@ export function ReservationOverlay({
                   type="text"
                   required
                   minLength={2}
+                  maxLength={50}
                   className={inputClass}
                   placeholder={t.namePlaceholder}
                   value={formData.name}
@@ -314,6 +316,7 @@ export function ReservationOverlay({
                 <label className={labelClass}>{t.phoneLabel}</label>
                 <input
                   type="tel"
+                  maxLength={9}
                   className={inputClass}
                   placeholder={t.phonePlaceholder}
                   value={formData.phone}
