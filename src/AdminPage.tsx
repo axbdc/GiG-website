@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase, type Reservation, type ClosedDate } from "./lib/supabase";
 
 type View = "dashboard" | "reservations" | "calendar" | "settings";
@@ -27,6 +27,25 @@ function getDatesInRange(startDate: string, endDate: string): string[] {
     current.setDate(current.getDate() + 1);
   }
   return dates;
+}
+
+function playNotificationSound() {
+  try {
+    const ctx = new AudioContext();
+    const times = [0, 0.15, 0.3];
+    const freqs = [880, 1100, 1320];
+    times.forEach((t, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(freqs[i], ctx.currentTime + t);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime + t);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.12);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + 0.12);
+    });
+  } catch (_) {}
 }
 
 // --- Login ---
@@ -169,6 +188,7 @@ export default function AdminPage() {
   const [dateFilter, setDateFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const prevPendingCount = useRef<number>(-1);
 
   const [closedMode, setClosedMode] = useState<"single" | "range">("single");
   const [newClosedDate, setNewClosedDate] = useState("");
@@ -183,12 +203,26 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-  if (authed) {
-    loadData();
-    const interval = setInterval(loadData, 30000);
-    return () => clearInterval(interval);
-  }
-}, [authed]);
+    if (authed) {
+      loadData();
+      const interval = setInterval(async () => {
+        const [{ data: res }, { data: cd }] = await Promise.all([
+          supabase.from("reservations").select("*").order("date", { ascending: true }).order("time", { ascending: true }).order("created_at", { ascending: true }),
+          supabase.from("closed_dates").select("*").order("date", { ascending: true }),
+        ]);
+        const newReservations = res || [];
+        const newPendingCount = newReservations.filter((r) => r.status === "pending").length;
+        // Toca som se houver novas reservas pendentes (mas nao no primeiro load)
+        if (prevPendingCount.current >= 0 && newPendingCount > prevPendingCount.current) {
+          playNotificationSound();
+        }
+        prevPendingCount.current = newPendingCount;
+        setReservations(newReservations);
+        setClosedDates(cd || []);
+      }, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [authed]);
 
   const loadData = async () => {
     setLoading(true);
@@ -196,7 +230,10 @@ export default function AdminPage() {
       supabase.from("reservations").select("*").order("date", { ascending: true }).order("time", { ascending: true }).order("created_at", { ascending: true }),
       supabase.from("closed_dates").select("*").order("date", { ascending: true }),
     ]);
-    setReservations(res || []);
+    const newReservations = res || [];
+    const newPendingCount = newReservations.filter((r) => r.status === "pending").length;
+    prevPendingCount.current = newPendingCount;
+    setReservations(newReservations);
     setClosedDates(cd || []);
     setLoading(false);
   };
@@ -210,15 +247,7 @@ export default function AdminPage() {
     setActionLoading(r.id);
     await supabase.from("reservations").update({ status: "confirmed" }).eq("id", r.id);
     await supabase.functions.invoke("send-confirmation", {
-      body: {
-        name: r.name,
-        email: r.email,
-        date: r.date,
-        time: r.time,
-        guests: String(r.guests),
-        lang: "pt",
-        type: "confirmed",
-      },
+      body: { name: r.name, email: r.email, date: r.date, time: r.time, guests: String(r.guests), lang: "pt", type: "confirmed" },
     });
     setReservations((prev) => prev.map((res) => (res.id === r.id ? { ...res, status: "confirmed" as Reservation["status"] } : res)));
     setActionLoading(null);
@@ -228,15 +257,7 @@ export default function AdminPage() {
     setActionLoading(r.id);
     await supabase.from("reservations").update({ status: "cancelled" }).eq("id", r.id);
     await supabase.functions.invoke("send-confirmation", {
-      body: {
-        name: r.name,
-        email: r.email,
-        date: r.date,
-        time: r.time,
-        guests: String(r.guests),
-        lang: "pt",
-        type: "cancelled",
-      },
+      body: { name: r.name, email: r.email, date: r.date, time: r.time, guests: String(r.guests), lang: "pt", type: "cancelled" },
     });
     setReservations((prev) => prev.map((res) => (res.id === r.id ? { ...res, status: "cancelled" as Reservation["status"] } : res)));
     setActionLoading(null);
@@ -352,7 +373,6 @@ export default function AdminPage() {
                     <StatCard label="Total" value={reservations.length} sub="todas as reservas" />
                   </div>
 
-                  {/* Pendentes */}
                   {pendingRes.length > 0 && (
                     <div className="bg-yellow-50 border border-yellow-200 rounded-2xl overflow-hidden mb-6">
                       <div className="px-6 py-4 border-b border-yellow-200 flex items-center gap-2">
@@ -381,7 +401,6 @@ export default function AdminPage() {
                     </div>
                   )}
 
-                  {/* Hoje */}
                   <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-[#18352a]/06">
                       <h3 className="font-semibold text-[#18352a]">Reservas de hoje</h3>
