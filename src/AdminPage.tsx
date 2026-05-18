@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase, type Reservation, type ClosedDate } from "./lib/supabase";
 
 type View = "dashboard" | "reservations" | "calendar" | "settings";
-type StatusFilter = "all" | "confirmed" | "cancelled" | "no_show";
+type StatusFilter = "all" | "pending" | "confirmed" | "cancelled" | "no_show";
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr + "T12:00:00");
@@ -59,29 +59,16 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
           )}
           <div>
             <label className="block text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72] mb-1.5">Email</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border border-[#18352a]/18 px-4 py-3 text-sm outline-none focus:border-[#6f8f72] focus:ring-1 focus:ring-[#6f8f72]/40"
-            />
+            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-xl border border-[#18352a]/18 px-4 py-3 text-sm outline-none focus:border-[#6f8f72] focus:ring-1 focus:ring-[#6f8f72]/40" />
           </div>
           <div>
             <label className="block text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72] mb-1.5">Password</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-[#18352a]/18 px-4 py-3 text-sm outline-none focus:border-[#6f8f72] focus:ring-1 focus:ring-[#6f8f72]/40"
-            />
+            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-xl border border-[#18352a]/18 px-4 py-3 text-sm outline-none focus:border-[#6f8f72] focus:ring-1 focus:ring-[#6f8f72]/40" />
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-full bg-[#18352a] py-3.5 text-sm font-bold uppercase tracking-[0.16em] text-[#fff8ea] transition hover:bg-[#6f8f72] disabled:opacity-50"
-          >
+          <button type="submit" disabled={loading}
+            className="w-full rounded-full bg-[#18352a] py-3.5 text-sm font-bold uppercase tracking-[0.16em] text-[#fff8ea] transition hover:bg-[#6f8f72] disabled:opacity-50">
             {loading ? "A entrar..." : "Entrar"}
           </button>
         </form>
@@ -94,11 +81,11 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
 }
 
 // --- Stats Card ---
-function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+function StatCard({ label, value, sub, highlight }: { label: string; value: string | number; sub?: string; highlight?: boolean }) {
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm">
+    <div className={`rounded-2xl p-6 shadow-sm ${highlight ? "bg-[#e8a838]/15 border border-[#e8a838]/30" : "bg-white"}`}>
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72]">{label}</p>
-      <p className="mt-2 text-4xl font-semibold text-[#18352a] tracking-[-0.04em]">{value}</p>
+      <p className={`mt-2 text-4xl font-semibold tracking-[-0.04em] ${highlight ? "text-[#e8a838]" : "text-[#18352a]"}`}>{value}</p>
       {sub && <p className="mt-1 text-sm text-[#405a4d]">{sub}</p>}
     </div>
   );
@@ -108,23 +95,29 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
 function ReservationRow({
   r,
   onStatusChange,
+  onAccept,
+  onReject,
 }: {
   r: Reservation;
   onStatusChange: (id: string, status: Reservation["status"]) => void;
+  onAccept: (r: Reservation) => void;
+  onReject: (r: Reservation) => void;
 }) {
-  const statusColors = {
+  const statusColors: Record<string, string> = {
     confirmed: "bg-green-100 text-green-800",
     cancelled: "bg-red-100 text-red-800",
     no_show: "bg-gray-100 text-gray-600",
+    pending: "bg-yellow-100 text-yellow-800",
   };
-  const statusLabels = {
+  const statusLabels: Record<string, string> = {
     confirmed: "Confirmada",
     cancelled: "Cancelada",
-    no_show: "Não apareceu",
+    no_show: "Nao apareceu",
+    pending: "Pendente",
   };
 
   return (
-    <tr className="border-b border-[#18352a]/06 hover:bg-[#18352a]/02 transition">
+    <tr className={`border-b border-[#18352a]/06 hover:bg-[#18352a]/02 transition ${r.status === "pending" ? "bg-yellow-50/50" : ""}`}>
       <td className="px-4 py-3">
         <p className="font-semibold text-[#18352a] text-sm">{r.name}</p>
         <p className="text-xs text-[#405a4d]">{r.email}</p>
@@ -135,22 +128,32 @@ function ReservationRow({
         <p className="text-[#6f8f72] font-semibold">{formatTime(r.time)}</p>
       </td>
       <td className="px-4 py-3 text-sm text-center font-semibold text-[#18352a]">{r.guests}</td>
-      <td className="px-4 py-3 text-xs text-[#405a4d] max-w-[200px] truncate">{r.message || "—"}</td>
+      <td className="px-4 py-3 text-xs text-[#405a4d] max-w-[160px] truncate">{r.message || "—"}</td>
       <td className="px-4 py-3">
-        <span className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${statusColors[r.status]}`}>
-          {statusLabels[r.status]}
+        <span className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${statusColors[r.status] || "bg-gray-100 text-gray-600"}`}>
+          {statusLabels[r.status] || r.status}
         </span>
       </td>
       <td className="px-4 py-3">
-        <select
-          value={r.status}
-          onChange={(e) => onStatusChange(r.id, e.target.value as Reservation["status"])}
-          className="text-xs rounded-lg border border-[#18352a]/18 px-2 py-1.5 outline-none cursor-pointer"
-        >
-          <option value="confirmed">Confirmada</option>
-          <option value="cancelled">Cancelada</option>
-          <option value="no_show">Não apareceu</option>
-        </select>
+        {r.status === "pending" ? (
+          <div className="flex gap-2">
+            <button onClick={() => onAccept(r)}
+              className="rounded-full bg-green-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-green-700 transition">
+              Aceitar
+            </button>
+            <button onClick={() => onReject(r)}
+              className="rounded-full bg-red-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-600 transition">
+              Recusar
+            </button>
+          </div>
+        ) : (
+          <select value={r.status} onChange={(e) => onStatusChange(r.id, e.target.value as Reservation["status"])}
+            className="text-xs rounded-lg border border-[#18352a]/18 px-2 py-1.5 outline-none cursor-pointer">
+            <option value="confirmed">Confirmada</option>
+            <option value="cancelled">Cancelada</option>
+            <option value="no_show">Nao apareceu</option>
+          </select>
+        )}
       </td>
     </tr>
   );
@@ -165,8 +168,8 @@ export default function AdminPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [dateFilter, setDateFilter] = useState("");
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  // Modo de adicionar dias fechados: "single" ou "range"
   const [closedMode, setClosedMode] = useState<"single" | "range">("single");
   const [newClosedDate, setNewClosedDate] = useState("");
   const [newClosedDateEnd, setNewClosedDateEnd] = useState("");
@@ -174,18 +177,12 @@ export default function AdminPage() {
   const [addingClosed, setAddingClosed] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setAuthed(!!data.session);
-    });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthed(!!session);
-    });
+    supabase.auth.getSession().then(({ data }) => setAuthed(!!data.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setAuthed(!!session));
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (authed) loadData();
-  }, [authed]);
+  useEffect(() => { if (authed) loadData(); }, [authed]);
 
   const loadData = async () => {
     setLoading(true);
@@ -203,38 +200,56 @@ export default function AdminPage() {
     setReservations((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
   };
 
+  const handleAccept = async (r: Reservation) => {
+    setActionLoading(r.id);
+    await supabase.from("reservations").update({ status: "confirmed" }).eq("id", r.id);
+    await supabase.functions.invoke("send-confirmation", {
+      body: {
+        name: r.name,
+        email: r.email,
+        date: r.date,
+        time: r.time,
+        guests: String(r.guests),
+        lang: "pt",
+        type: "confirmed",
+      },
+    });
+    setReservations((prev) => prev.map((res) => (res.id === r.id ? { ...res, status: "confirmed" as Reservation["status"] } : res)));
+    setActionLoading(null);
+  };
+
+  const handleReject = async (r: Reservation) => {
+    setActionLoading(r.id);
+    await supabase.from("reservations").update({ status: "cancelled" }).eq("id", r.id);
+    await supabase.functions.invoke("send-confirmation", {
+      body: {
+        name: r.name,
+        email: r.email,
+        date: r.date,
+        time: r.time,
+        guests: String(r.guests),
+        lang: "pt",
+        type: "cancelled",
+      },
+    });
+    setReservations((prev) => prev.map((res) => (res.id === r.id ? { ...res, status: "cancelled" as Reservation["status"] } : res)));
+    setActionLoading(null);
+  };
+
   const handleAddClosedDate = async () => {
     if (!newClosedDate) return;
     setAddingClosed(true);
-
     if (closedMode === "single") {
-      const { data } = await supabase
-        .from("closed_dates")
-        .insert({ date: newClosedDate, reason: newClosedReason || null })
-        .select()
-        .single();
-      if (data) {
-        setClosedDates((prev) => [...prev, data].sort((a, b) => a.date.localeCompare(b.date)));
-      }
+      const { data } = await supabase.from("closed_dates").insert({ date: newClosedDate, reason: newClosedReason || null }).select().single();
+      if (data) setClosedDates((prev) => [...prev, data].sort((a, b) => a.date.localeCompare(b.date)));
     } else {
-      if (!newClosedDateEnd || newClosedDateEnd < newClosedDate) {
-        setAddingClosed(false);
-        return;
-      }
+      if (!newClosedDateEnd || newClosedDateEnd < newClosedDate) { setAddingClosed(false); return; }
       const dates = getDatesInRange(newClosedDate, newClosedDateEnd);
       const inserts = dates.map((date) => ({ date, reason: newClosedReason || null }));
       const { data } = await supabase.from("closed_dates").insert(inserts).select();
-      if (data) {
-        setClosedDates((prev) =>
-          [...prev, ...data].sort((a, b) => a.date.localeCompare(b.date))
-        );
-      }
+      if (data) setClosedDates((prev) => [...prev, ...data].sort((a, b) => a.date.localeCompare(b.date)));
     }
-
-    setNewClosedDate("");
-    setNewClosedDateEnd("");
-    setNewClosedReason("");
-    setAddingClosed(false);
+    setNewClosedDate(""); setNewClosedDateEnd(""); setNewClosedReason(""); setAddingClosed(false);
   };
 
   const handleRemoveClosedDate = async (id: string) => {
@@ -242,9 +257,7 @@ export default function AdminPage() {
     setClosedDates((prev) => prev.filter((d) => d.id !== id));
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
+  const handleLogout = async () => { await supabase.auth.signOut(); };
 
   if (authed === null) return (
     <div className="min-h-screen bg-[#f7f0e3] flex items-center justify-center">
@@ -259,6 +272,7 @@ export default function AdminPage() {
     return true;
   });
 
+  const pendingRes = reservations.filter((r) => r.status === "pending");
   const todayRes = reservations.filter((r) => r.date === today() && r.status === "confirmed");
   const todayGuests = todayRes.reduce((s, r) => s + r.guests, 0);
   const upcomingRes = reservations.filter((r) => r.date >= today() && r.status === "confirmed");
@@ -273,12 +287,11 @@ export default function AdminPage() {
     { id: "dashboard", label: "Dashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
     { id: "reservations", label: "Reservas", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
     { id: "calendar", label: "Dias Fechados", icon: "M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" },
-    { id: "settings", label: "Definições", icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" },
+    { id: "settings", label: "Definicoes", icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" },
   ];
 
   return (
     <div className="min-h-screen bg-[#f0ede6] flex">
-      {/* Sidebar */}
       <aside className="w-64 bg-[#18352a] text-[#fff8ea] flex flex-col shrink-0">
         <div className="px-6 py-6 border-b border-white/10">
           <h1 className="font-serif text-2xl tracking-[-0.04em]">GiG</h1>
@@ -286,17 +299,15 @@ export default function AdminPage() {
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
           {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setView(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition text-left ${
-                view === item.id ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/08 hover:text-white"
-              }`}
-            >
+            <button key={item.id} onClick={() => setView(item.id)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition text-left ${view === item.id ? "bg-white/15 text-white" : "text-white/60 hover:bg-white/08 hover:text-white"}`}>
               <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                 <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
               </svg>
-              {item.label}
+              <span>{item.label}</span>
+              {item.id === "reservations" && pendingRes.length > 0 && (
+                <span className="ml-auto bg-[#e8a838] text-white text-xs font-bold rounded-full px-2 py-0.5">{pendingRes.length}</span>
+              )}
             </button>
           ))}
         </nav>
@@ -316,7 +327,6 @@ export default function AdminPage() {
         </div>
       </aside>
 
-      {/* Main content */}
       <main className="flex-1 overflow-auto">
         <div className="max-w-6xl mx-auto px-6 py-8">
 
@@ -328,36 +338,70 @@ export default function AdminPage() {
                 <div className="flex items-center justify-center h-40"><div className="animate-spin h-8 w-8 border-2 border-[#18352a] border-t-transparent rounded-full" /></div>
               ) : (
                 <>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+                    <StatCard label="Pendentes" value={pendingRes.length} sub="aguardam confirmacao" highlight={pendingRes.length > 0} />
                     <StatCard label="Hoje" value={todayRes.length} sub={`${todayGuests} pessoas`} />
-                    <StatCard label="Esta semana" value={thisWeek.length} sub="reservas confirmadas" />
-                    <StatCard label="Próximas" value={upcomingRes.length} sub="reservas futuras" />
+                    <StatCard label="Esta semana" value={thisWeek.length} sub="confirmadas" />
+                    <StatCard label="Proximas" value={upcomingRes.length} sub="reservas futuras" />
                     <StatCard label="Total" value={reservations.length} sub="todas as reservas" />
                   </div>
+
+                  {/* Pendentes */}
+                  {pendingRes.length > 0 && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-2xl overflow-hidden mb-6">
+                      <div className="px-6 py-4 border-b border-yellow-200 flex items-center gap-2">
+                        <span className="text-yellow-600 font-bold text-sm">⚠</span>
+                        <h3 className="font-semibold text-[#18352a]">Reservas a aguardar confirmacao ({pendingRes.length})</h3>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-yellow-200 text-xs font-bold uppercase tracking-[0.14em] text-[#6f8f72]">
+                              <th className="px-4 py-3 text-left">Cliente</th>
+                              <th className="px-4 py-3 text-left">Data / Hora</th>
+                              <th className="px-4 py-3 text-center">Pax</th>
+                              <th className="px-4 py-3 text-left">Nota</th>
+                              <th className="px-4 py-3 text-left">Estado</th>
+                              <th className="px-4 py-3 text-left">Acao</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pendingRes.map((r) => (
+                              <ReservationRow key={r.id} r={r} onStatusChange={handleStatusChange} onAccept={handleAccept} onReject={handleReject} />
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hoje */}
                   <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-[#18352a]/06">
                       <h3 className="font-semibold text-[#18352a]">Reservas de hoje</h3>
                     </div>
                     {todayRes.length === 0 ? (
-                      <div className="px-6 py-10 text-center text-[#405a4d] text-sm">Nenhuma reserva para hoje.</div>
+                      <div className="px-6 py-10 text-center text-[#405a4d] text-sm">Nenhuma reserva confirmada para hoje.</div>
                     ) : (
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-[#18352a]/06 text-xs font-bold uppercase tracking-[0.14em] text-[#6f8f72]">
-                            <th className="px-4 py-3 text-left">Cliente</th>
-                            <th className="px-4 py-3 text-left">Hora</th>
-                            <th className="px-4 py-3 text-center">Pessoas</th>
-                            <th className="px-4 py-3 text-left">Nota</th>
-                            <th className="px-4 py-3 text-left">Estado</th>
-                            <th className="px-4 py-3 text-left">Ação</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {todayRes.map((r) => (
-                            <ReservationRow key={r.id} r={r} onStatusChange={handleStatusChange} />
-                          ))}
-                        </tbody>
-                      </table>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-[#18352a]/06 text-xs font-bold uppercase tracking-[0.14em] text-[#6f8f72]">
+                              <th className="px-4 py-3 text-left">Cliente</th>
+                              <th className="px-4 py-3 text-left">Hora</th>
+                              <th className="px-4 py-3 text-center">Pessoas</th>
+                              <th className="px-4 py-3 text-left">Nota</th>
+                              <th className="px-4 py-3 text-left">Estado</th>
+                              <th className="px-4 py-3 text-left">Acao</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {todayRes.map((r) => (
+                              <ReservationRow key={r.id} r={r} onStatusChange={handleStatusChange} onAccept={handleAccept} onReject={handleReject} />
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     )}
                   </div>
                 </>
@@ -370,34 +414,20 @@ export default function AdminPage() {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-semibold text-[#18352a] tracking-[-0.04em]">Todas as Reservas</h2>
-                <button onClick={loadData} className="text-xs font-semibold text-[#6f8f72] hover:text-[#18352a] transition uppercase tracking-[0.14em]">
-                  Atualizar
-                </button>
+                <button onClick={loadData} className="text-xs font-semibold text-[#6f8f72] hover:text-[#18352a] transition uppercase tracking-[0.14em]">Atualizar</button>
               </div>
               <div className="flex flex-wrap gap-3 mb-5">
-                <input
-                  type="date"
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="rounded-xl border border-[#18352a]/18 px-3 py-2 text-sm outline-none focus:border-[#6f8f72]"
-                />
-                {(["all", "confirmed", "cancelled", "no_show"] as StatusFilter[]).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setStatusFilter(s)}
-                    className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${
-                      statusFilter === s
-                        ? "bg-[#18352a] text-[#fff8ea]"
-                        : "bg-white text-[#405a4d] border border-[#18352a]/18 hover:border-[#18352a]"
-                    }`}
-                  >
-                    {s === "all" ? "Todas" : s === "confirmed" ? "Confirmadas" : s === "cancelled" ? "Canceladas" : "Não apareceu"}
+                <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}
+                  className="rounded-xl border border-[#18352a]/18 px-3 py-2 text-sm outline-none focus:border-[#6f8f72]" />
+                {(["all", "pending", "confirmed", "cancelled", "no_show"] as StatusFilter[]).map((s) => (
+                  <button key={s} onClick={() => setStatusFilter(s)}
+                    className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${statusFilter === s ? "bg-[#18352a] text-[#fff8ea]" : "bg-white text-[#405a4d] border border-[#18352a]/18 hover:border-[#18352a]"}`}>
+                    {s === "all" ? "Todas" : s === "pending" ? "Pendentes" : s === "confirmed" ? "Confirmadas" : s === "cancelled" ? "Canceladas" : "Nao apareceu"}
+                    {s === "pending" && pendingRes.length > 0 && <span className="ml-1.5 bg-[#e8a838] text-white text-xs font-bold rounded-full px-1.5 py-0.5">{pendingRes.length}</span>}
                   </button>
                 ))}
                 {(dateFilter || statusFilter !== "all") && (
-                  <button onClick={() => { setDateFilter(""); setStatusFilter("all"); }} className="text-xs text-[#6f8f72] hover:text-[#18352a] transition">
-                    Limpar filtros
-                  </button>
+                  <button onClick={() => { setDateFilter(""); setStatusFilter("all"); }} className="text-xs text-[#6f8f72] hover:text-[#18352a] transition">Limpar filtros</button>
                 )}
               </div>
               <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
@@ -415,12 +445,12 @@ export default function AdminPage() {
                           <th className="px-4 py-3 text-center">Pax</th>
                           <th className="px-4 py-3 text-left">Nota</th>
                           <th className="px-4 py-3 text-left">Estado</th>
-                          <th className="px-4 py-3 text-left">Ação</th>
+                          <th className="px-4 py-3 text-left">Acao</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filtered.map((r) => (
-                          <ReservationRow key={r.id} r={r} onStatusChange={handleStatusChange} />
+                          <ReservationRow key={r.id} r={r} onStatusChange={handleStatusChange} onAccept={handleAccept} onReject={handleReject} />
                         ))}
                       </tbody>
                     </table>
@@ -431,87 +461,47 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* CALENDAR / CLOSED DATES */}
+          {/* CALENDAR */}
           {view === "calendar" && (
             <div>
               <h2 className="text-2xl font-semibold text-[#18352a] tracking-[-0.04em] mb-2">Dias Fechados</h2>
-              <p className="text-sm text-[#405a4d] mb-6">
-                O café está automaticamente fechado às <strong>quartas-feiras</strong>. Usa esta secção para marcar feriados, férias ou outros dias especiais.
-              </p>
-
-              {/* Adicionar data */}
+              <p className="text-sm text-[#405a4d] mb-6">O cafe esta automaticamente fechado as <strong>quartas-feiras</strong>. Usa esta seccao para marcar feriados, ferias ou outros dias especiais.</p>
               <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
                 <h3 className="font-semibold text-[#18352a] mb-4">Marcar dias fechados</h3>
-
-                {/* Toggle modo */}
                 <div className="flex gap-2 mb-4">
-                  <button
-                    onClick={() => setClosedMode("single")}
-                    className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition ${
-                      closedMode === "single" ? "bg-[#18352a] text-[#fff8ea]" : "bg-[#f0ede6] text-[#405a4d] hover:bg-[#18352a]/10"
-                    }`}
-                  >
-                    Dia único
+                  <button onClick={() => setClosedMode("single")}
+                    className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition ${closedMode === "single" ? "bg-[#18352a] text-[#fff8ea]" : "bg-[#f0ede6] text-[#405a4d] hover:bg-[#18352a]/10"}`}>
+                    Dia unico
                   </button>
-                  <button
-                    onClick={() => setClosedMode("range")}
-                    className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition ${
-                      closedMode === "range" ? "bg-[#18352a] text-[#fff8ea]" : "bg-[#f0ede6] text-[#405a4d] hover:bg-[#18352a]/10"
-                    }`}
-                  >
-                    Período (férias)
+                  <button onClick={() => setClosedMode("range")}
+                    className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition ${closedMode === "range" ? "bg-[#18352a] text-[#fff8ea]" : "bg-[#f0ede6] text-[#405a4d] hover:bg-[#18352a]/10"}`}>
+                    Periodo (ferias)
                   </button>
                 </div>
-
                 <div className="flex flex-wrap gap-3">
                   {closedMode === "single" ? (
-                    <input
-                      type="date"
-                      value={newClosedDate}
-                      onChange={(e) => setNewClosedDate(e.target.value)}
-                      className="rounded-xl border border-[#18352a]/18 px-4 py-2.5 text-sm outline-none focus:border-[#6f8f72]"
-                    />
+                    <input type="date" value={newClosedDate} onChange={(e) => setNewClosedDate(e.target.value)}
+                      className="rounded-xl border border-[#18352a]/18 px-4 py-2.5 text-sm outline-none focus:border-[#6f8f72]" />
                   ) : (
                     <div className="flex items-center gap-2">
-                      <input
-                        type="date"
-                        value={newClosedDate}
-                        onChange={(e) => setNewClosedDate(e.target.value)}
-                        className="rounded-xl border border-[#18352a]/18 px-4 py-2.5 text-sm outline-none focus:border-[#6f8f72]"
-                      />
-                      <span className="text-sm text-[#405a4d]">até</span>
-                      <input
-                        type="date"
-                        value={newClosedDateEnd}
-                        min={newClosedDate}
-                        onChange={(e) => setNewClosedDateEnd(e.target.value)}
-                        className="rounded-xl border border-[#18352a]/18 px-4 py-2.5 text-sm outline-none focus:border-[#6f8f72]"
-                      />
+                      <input type="date" value={newClosedDate} onChange={(e) => setNewClosedDate(e.target.value)}
+                        className="rounded-xl border border-[#18352a]/18 px-4 py-2.5 text-sm outline-none focus:border-[#6f8f72]" />
+                      <span className="text-sm text-[#405a4d]">ate</span>
+                      <input type="date" value={newClosedDateEnd} min={newClosedDate} onChange={(e) => setNewClosedDateEnd(e.target.value)}
+                        className="rounded-xl border border-[#18352a]/18 px-4 py-2.5 text-sm outline-none focus:border-[#6f8f72]" />
                     </div>
                   )}
-                  <input
-                    type="text"
-                    placeholder="Motivo (opcional)"
-                    value={newClosedReason}
-                    onChange={(e) => setNewClosedReason(e.target.value)}
-                    className="flex-1 min-w-[180px] rounded-xl border border-[#18352a]/18 px-4 py-2.5 text-sm outline-none focus:border-[#6f8f72]"
-                  />
-                  <button
-                    onClick={handleAddClosedDate}
-                    disabled={!newClosedDate || addingClosed || (closedMode === "range" && !newClosedDateEnd)}
-                    className="rounded-full bg-[#18352a] px-6 py-2.5 text-sm font-bold uppercase tracking-[0.14em] text-[#fff8ea] hover:bg-[#6f8f72] transition disabled:opacity-40"
-                  >
+                  <input type="text" placeholder="Motivo (opcional)" value={newClosedReason} onChange={(e) => setNewClosedReason(e.target.value)}
+                    className="flex-1 min-w-[180px] rounded-xl border border-[#18352a]/18 px-4 py-2.5 text-sm outline-none focus:border-[#6f8f72]" />
+                  <button onClick={handleAddClosedDate} disabled={!newClosedDate || addingClosed || (closedMode === "range" && !newClosedDateEnd)}
+                    className="rounded-full bg-[#18352a] px-6 py-2.5 text-sm font-bold uppercase tracking-[0.14em] text-[#fff8ea] hover:bg-[#6f8f72] transition disabled:opacity-40">
                     {addingClosed ? "A adicionar..." : "Adicionar"}
                   </button>
                 </div>
                 {closedMode === "range" && newClosedDate && newClosedDateEnd && newClosedDateEnd >= newClosedDate && (
-                  <p className="mt-2 text-xs text-[#6f8f72]">
-                    {getDatesInRange(newClosedDate, newClosedDateEnd).length} dias serão marcados como fechados.
-                  </p>
+                  <p className="mt-2 text-xs text-[#6f8f72]">{getDatesInRange(newClosedDate, newClosedDateEnd).length} dias serao marcados como fechados.</p>
                 )}
               </div>
-
-              {/* Lista de datas fechadas */}
               <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-[#18352a]/06">
                   <h3 className="font-semibold text-[#18352a]">Datas marcadas como fechadas</h3>
@@ -526,12 +516,8 @@ export default function AdminPage() {
                           <p className="font-semibold text-[#18352a] text-sm">{formatDate(d.date)}</p>
                           {d.reason && <p className="text-xs text-[#405a4d] mt-0.5">{d.reason}</p>}
                         </div>
-                        <button
-                          onClick={() => handleRemoveClosedDate(d.id)}
-                          className="text-xs font-semibold text-red-500 hover:text-red-700 transition uppercase tracking-[0.12em]"
-                        >
-                          Remover
-                        </button>
+                        <button onClick={() => handleRemoveClosedDate(d.id)}
+                          className="text-xs font-semibold text-red-500 hover:text-red-700 transition uppercase tracking-[0.12em]">Remover</button>
                       </div>
                     ))}
                   </div>
@@ -543,38 +529,18 @@ export default function AdminPage() {
           {/* SETTINGS */}
           {view === "settings" && (
             <div>
-              <h2 className="text-2xl font-semibold text-[#18352a] tracking-[-0.04em] mb-6">Definições</h2>
+              <h2 className="text-2xl font-semibold text-[#18352a] tracking-[-0.04em] mb-6">Definicoes</h2>
               <div className="bg-white rounded-2xl shadow-sm p-6 space-y-6">
                 <div className="grid sm:grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72] mb-1">Horário de abertura</p>
-                    <p className="text-lg font-semibold text-[#18352a]">10:00</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72] mb-1">Horário de fecho</p>
-                    <p className="text-lg font-semibold text-[#18352a]">16:00</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72] mb-1">Última reserva</p>
-                    <p className="text-lg font-semibold text-[#18352a]">14:30</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72] mb-1">Nº mesas</p>
-                    <p className="text-lg font-semibold text-[#18352a]">15 mesas</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72] mb-1">Capacidade máx. por slot</p>
-                    <p className="text-lg font-semibold text-[#18352a]">30 pessoas</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72] mb-1">Dia fechado semanal</p>
-                    <p className="text-lg font-semibold text-[#18352a]">Quarta-feira</p>
-                  </div>
+                  <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72] mb-1">Horario de abertura</p><p className="text-lg font-semibold text-[#18352a]">10:00</p></div>
+                  <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72] mb-1">Horario de fecho</p><p className="text-lg font-semibold text-[#18352a]">16:00</p></div>
+                  <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72] mb-1">Ultima reserva</p><p className="text-lg font-semibold text-[#18352a]">14:30</p></div>
+                  <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72] mb-1">N mesas</p><p className="text-lg font-semibold text-[#18352a]">15 mesas</p></div>
+                  <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72] mb-1">Capacidade max. por slot</p><p className="text-lg font-semibold text-[#18352a]">30 pessoas</p></div>
+                  <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72] mb-1">Dia fechado semanal</p><p className="text-lg font-semibold text-[#18352a]">Quarta-feira</p></div>
                 </div>
                 <div className="border-t border-[#18352a]/08 pt-4">
-                  <p className="text-xs text-[#405a4d]">
-                    Para alterar as configurações do café, contacta o administrador do sistema.
-                  </p>
+                  <p className="text-xs text-[#405a4d]">Para alterar as configuracoes do cafe, contacta o administrador do sistema.</p>
                 </div>
               </div>
             </div>
