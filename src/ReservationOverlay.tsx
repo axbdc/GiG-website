@@ -36,6 +36,7 @@ const copy = {
     errorName: "Please enter a valid name (letters only, 2-25 characters).",
     errorPhone: "Please enter a valid phone number (6-15 digits).",
     errorTooSoon: "Please book at least 2 hours in advance.",
+    errorDuplicate: "You already have a reservation for this date and time.",
     errorMessage: "Message cannot exceed 200 characters.",
     persons: "people",
     person: "person",
@@ -75,6 +76,7 @@ const copy = {
     errorName: "Por favor insere um nome válido (apenas letras, 2-25 caracteres).",
     errorPhone: "Por favor insere um número de telefone válido (6-15 dígitos).",
     errorTooSoon: "Por favor faz a reserva com pelo menos 2 horas de antecedência.",
+    errorDuplicate: "Já tens uma reserva para esta data e hora.",
     errorMessage: "A mensagem não pode ter mais de 200 caracteres.",
     persons: "pessoas",
     person: "pessoa",
@@ -185,10 +187,11 @@ export function ReservationOverlay({
 
     try {
       const { data: availability, error: availError } = await supabase.rpc("check_availability", {
-        p_date: formData.date,
-        p_time: formData.time,
-        p_guests: parseInt(formData.guests),
-      });
+      p_date: formData.date,
+      p_time: formData.time,
+      p_guests: parseInt(formData.guests),
+      p_email: formData.email,
+	});
 
       if (availError) throw availError;
 
@@ -198,6 +201,7 @@ export function ReservationOverlay({
         else if (availability.reason === "outside_hours") setError(t.errorHours);
         else if (availability.reason === "no_capacity") setError(t.errorCapacity);
         else if (availability.reason === "too_soon") setError(t.errorTooSoon);
+	else if (availability.reason === "duplicate") setError(t.errorDuplicate);
         else setError(t.errorGeneral);
         setLoading(false);
         return;
