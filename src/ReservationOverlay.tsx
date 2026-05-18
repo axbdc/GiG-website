@@ -242,7 +242,7 @@ export function ReservationOverlay({
       aria-label={t.title}
     >
       <div className="absolute inset-0 bg-[#18352a]/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl bg-[#f7f0e3] shadow-2xl reservation-panel">
+      <div className="relative z-10 w-full max-w-md max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-3xl bg-[#f7f0e3] shadow-2xl reservation-panel">
         {submitted ? (
           <div className="flex flex-col items-center gap-4 px-8 py-16 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#6f8f72] text-[#fff8ea]">
