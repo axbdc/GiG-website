@@ -313,10 +313,6 @@ function SiteLogin({ onLogin }: { onLogin: () => void }) {
   return (
     <div className="min-h-screen bg-[#18352a] flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="font-serif text-6xl text-[#fff8ea] tracking-[-0.04em]">GiG</h1>
-          <p className="text-[#6f8f72] mt-2 text-sm font-semibold uppercase tracking-[0.18em]">Green is Good</p>
-        </div>
         <form onSubmit={handleSubmit} className="bg-[#f7f0e3] rounded-3xl shadow-2xl p-8 space-y-4">
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
