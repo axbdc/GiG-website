@@ -294,6 +294,68 @@ const copy = {
 };
 
 // ══════════════════════════════════════════════
+// SITE LOGIN
+// ══════════════════════════════════════════════
+function SiteLogin({ onLogin }: { onLogin: () => void }) {
+  const [user, setUser] = useState("");
+  const [pass, setPass] = useState("");
+  const [error, setError] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (user === "admin" && pass === "Yanka.2003") {
+      onLogin();
+    } else {
+      setError(true);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#18352a] flex items-center justify-center p-4">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-8">
+          <h1 className="font-serif text-6xl text-[#fff8ea] tracking-[-0.04em]">GiG</h1>
+          <p className="text-[#6f8f72] mt-2 text-sm font-semibold uppercase tracking-[0.18em]">Green is Good</p>
+        </div>
+        <form onSubmit={handleSubmit} className="bg-[#f7f0e3] rounded-3xl shadow-2xl p-8 space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+              Credenciais incorrectas.
+            </div>
+          )}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72] mb-1.5">Utilizador</label>
+            <input
+              type="text"
+              required
+              value={user}
+              onChange={(e) => { setUser(e.target.value); setError(false); }}
+              className="w-full rounded-xl border border-[#18352a]/18 px-4 py-3 text-sm outline-none focus:border-[#6f8f72] focus:ring-1 focus:ring-[#6f8f72]/40 bg-white"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-[0.18em] text-[#6f8f72] mb-1.5">Password</label>
+            <input
+              type="password"
+              required
+              value={pass}
+              onChange={(e) => { setPass(e.target.value); setError(false); }}
+              className="w-full rounded-xl border border-[#18352a]/18 px-4 py-3 text-sm outline-none focus:border-[#6f8f72] focus:ring-1 focus:ring-[#6f8f72]/40 bg-white"
+            />
+          </div>
+          <button
+            type="submit"
+            className="w-full rounded-full bg-[#18352a] py-3.5 text-sm font-bold uppercase tracking-[0.16em] text-[#fff8ea] transition hover:bg-[#6f8f72]"
+          >
+            Entrar
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════
 // COOKIE BANNER
 // ══════════════════════════════════════════════
 function CookieBanner({ lang, onAccept, onDecline }: { lang: Language; onAccept: () => void; onDecline: () => void }) {
@@ -303,28 +365,16 @@ function CookieBanner({ lang, onAccept, onDecline }: { lang: Language; onAccept:
     <div className="fixed bottom-0 left-0 right-0 z-[200] p-4 sm:p-6">
       <div className="mx-auto max-w-5xl overflow-hidden rounded-2xl shadow-2xl" style={{ background: "#1a3828" }}>
         <div className="relative flex flex-col sm:flex-row items-center">
-          {/* Imagem do carro */}
           <div className="w-full sm:w-[420px] shrink-0 h-[160px] sm:h-[140px] overflow-hidden">
-            <img
-              src="/images/banner-cookies.png"
-              alt="GiG Ericeira car"
-              className="h-full w-full object-cover object-left"
-            />
+            <img src="/images/banner-cookies.png" alt="GiG Ericeira car" className="h-full w-full object-cover object-left" />
           </div>
-          {/* Texto e botões */}
           <div className="flex flex-1 flex-col gap-4 px-6 py-5 sm:py-0">
             <p className="text-sm leading-6 text-[#fff8ea]/85">{t.text}</p>
             <div className="flex flex-wrap gap-3">
-              <button
-                onClick={onAccept}
-                className="rounded-full bg-[#f7f0e3] px-6 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-[#18352a] transition hover:bg-[#dbe7c6]"
-              >
+              <button onClick={onAccept} className="rounded-full bg-[#f7f0e3] px-6 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-[#18352a] transition hover:bg-[#dbe7c6]">
                 {t.accept}
               </button>
-              <button
-                onClick={onDecline}
-                className="rounded-full border border-[#f7f0e3]/30 px-6 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-[#fff8ea]/70 transition hover:border-[#f7f0e3]/60 hover:text-[#fff8ea]"
-              >
+              <button onClick={onDecline} className="rounded-full border border-[#f7f0e3]/30 px-6 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-[#fff8ea]/70 transition hover:border-[#f7f0e3]/60 hover:text-[#fff8ea]">
                 {t.decline}
               </button>
             </div>
@@ -506,6 +556,7 @@ function MenuOverlay({ isOpen, onClose, lang }: { isOpen: boolean; onClose: () =
 // MAIN APP
 // ══════════════════════════════════════════════
 export default function App() {
+  const [siteAuthed, setSiteAuthed] = useState(() => sessionStorage.getItem("gig-site-auth") === "true");
   const [language, setLanguage] = useState<Language>("en");
   const [menuOpen, setMenuOpen] = useState(false);
   const [reservationOpen, setReservationOpen] = useState(false);
@@ -548,6 +599,10 @@ export default function App() {
     localStorage.setItem("gig-cookies", "declined");
     setCookiesAccepted(true);
   };
+
+  if (!siteAuthed) {
+    return <SiteLogin onLogin={() => { sessionStorage.setItem("gig-site-auth", "true"); setSiteAuthed(true); }} />;
+  }
 
   return (
     <main className="min-h-screen bg-[#f7f0e3] text-[#18352a] selection:bg-[#b7cdbd] selection:text-[#18352a]">
